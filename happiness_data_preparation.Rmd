@@ -1,0 +1,46 @@
+---
+title: 'Data Preparation'
+author: "Aviel Fradkine"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(countrycode)
+knitr::opts_chunk$set(
+  out.width = "100%",
+  message = FALSE,
+  warning = FALSE,
+  cache = FALSE,
+  comment = "",
+  echo = TRUE
+)
+```
+
+```{r}
+# read in the data from the world happiness report 2022 Table 2.1 (p. 20) reg
+whs <- read_csv("DataForTable2.1.csv")
+
+# add in continent variable depending on country name using the countrycode 
+# package. the continent variable follows the World Bank region designation 
+whs <- whs %>%
+        mutate(region = countrycode(sourcevar = whs$`Country name`,
+                                       origin = 'country.name',
+                                       destination = 'region'))
+
+# select the column we'll be using and then save the file
+# get back the GDP value and relocate the gdp column next to the other one
+happiness <- whs %>%
+        select(`Country name`, `year`, `Life Ladder`, `Log GDP per capita`, 
+               `region`) %>%
+        mutate(gdp = exp(`Log GDP per capita`)) %>%
+        relocate(gdp, .after = `Log GDP per capita`)
+
+# rename columns
+colnames(happiness) <- c("country", "year", "life_ladder", "log_gdp", "gdp", 
+                         "region")
+# write_csv for export
+write_csv(happiness, 
+          "C:\\Users\\Aviel\\Desktop\\Poli 312\\final_project\\happiness.csv")
+```
