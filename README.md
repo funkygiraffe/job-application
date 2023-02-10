@@ -5,7 +5,7 @@ Welcome! Here you'll find projects and code that I've chosen to make public to s
 
 ## 1. Happiness Data Analysis 
    - [Data](/happiness.csv) 
-   - Data Import: [r-markdown](/happiness_data_preparation.Rmd), 
+   - Data Import: [r-markdown](/happiness_data_preparation.Rmd) 
    - Data Analysis: [r-markdown](/happiness_analysis_code.Rmd)
 ## 2. Climate Weather Analysis 
    - Data Import: [r-markdown](/climate-data-import.Rmd), [pdf](/climate_data_import.pdf)
