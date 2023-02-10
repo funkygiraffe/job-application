@@ -9,7 +9,7 @@ In this project, I analyzed data from the World Happiness Report to investigate 
    - [Data](/happiness.csv) 
    - Data Import (code): [r-markdown](/happiness_data_preparation.Rmd) 
    - Data Analysis (code): [r-markdown](/happiness_analysis_code.Rmd)
-   - [Final Report](/happiness_analysis_code.pdf)
+   - Final Report: [pdf](/happiness_analysis_code.pdf)
 ## 2. Climate Weather Analysis 
 In this project for my Honours Econometrics class, we set out with some classmates to analyze the potential relationship between warming temperatures and agricultural crop prices (as reflected in the Farm Product Price Index) in Canada. While I was not ultimately successful in establishing a relationship, I did create a "weather-basket" for Canada which drew on publicly available weather data of indexes of average monthly temperature, number of observations in a month of weather over 25c and 30c, and precipitation data, and then performed regressions to analyze the relationship.  
    - Data Import (code): [r-markdown](/climate-data-import.Rmd), [pdf](/climate_data_import.pdf)
