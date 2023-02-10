@@ -18,4 +18,4 @@ In this project for my Honours Econometrics class, we set out with some classmat
    - Final Report: [pdf](/Econ_468_Group_Report.pdf)
 ## 3. ARIA Research on Religious Authority
 This was a poster I presented at the research night for the McGill Faculty of Arts in Fall 2022 that summarizes the political theory research I conducted over the summer with the selective Arts Research Internship Award (ARIA) program under the guidance of a McGill University Political Theorist. 
-   - [Final Research Poster](/"ARIA_2022_Aviel_Fradkine_Poster.pdf")
+   - Final Research Poster: [pdf](/"ARIA_2022_Aviel_Fradkine_Poster.pdf")
