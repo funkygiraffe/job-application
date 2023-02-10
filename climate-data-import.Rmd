@@ -1,0 +1,276 @@
+---
+title: "getweatherdata"
+author: "Aviel Fradkine"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(readxl)
+library(ggthemes)
+library(haven)
+library(huxtable)
+library(knitr)
+library(weathercan)
+library(sp)
+library(lubridate)
+knitr::opts_chunk$set(
+  out.width = "100%",
+  message = FALSE,
+  warning = FALSE,
+  cache = FALSE,
+  comment = "",
+  echo = TRUE
+)
+```
+
+## weatherdata file part
+
+Manipulate weather station data to get what we want
+```{r}
+station_inventory <- read_csv("station_inventory.csv", skip = 3)
+
+# filter for stations where there is data for first and last years 1991 - 2021
+station_inventory_1991to2021 <- station_inventory %>%
+        filter(`DLY First Year` < 1992 & `DLY Last Year` > 2020)
+
+# filter by latitude lower than 55 (to exclude more northern territories)
+station_inventory_1991to2021_filtered <- station_inventory_1991to2021 %>%
+        filter(`Latitude (Decimal Degrees)` < 55)
+
+station_lists_1991to2021_filtered <- station_inventory_1991to2021 %>%
+        select(cols = c(`Name`, `Province`, `Station ID`, `Climate ID`))
+
+colnames(station_lists_1991to2021_filtered) <- c('Name', 'Province', 'Station ID', 'Climate ID')
+
+write_csv(station_inventory_1991to2021_filtered, "C:\\Users\\Aviel\\Desktop\\Econ468project\\dailystations1991to2021filtered.csv")
+write_csv(station_lists_1991to2021_filtered, "C:\\Users\\Aviel\\Desktop\\Econ468project\\stationnames1991to2021filtered.csv")
+```
+
+## Nov 9 2022
+
+Exploring the stations
+
+```{r}
+daily <- read_csv("dailystations1991to2021filtered.csv")
+
+daily_alberta <- daily[daily$Province == "ALBERTA", ]
+daily_manitoba <- daily[daily$Province == "MANITOBA", ]
+daily_saskatchewan <- daily[daily$Province == "SASKATCHEWAN", ]
+daily_ontario <- daily[daily$Province == "ONTARIO", ]
+daily_quebec <- daily[daily$Province == "QUEBEC", ]
+
+all_stations_filtered <- rbind(daily_alberta, daily_manitoba, daily_saskatchewan, daily_ontario, daily_quebec)
+
+rm(list = setdiff(ls(), "all_stations_filtered")) # keeps only all stations filtered object
+```
+
+Combine all the stations into one frame
+```{r}
+setwd("C:/Users/Aviel/Desktop/Econ468project/all_filtered_stations_1991to2021/")
+a <- list.files("C:/Users/Aviel/Desktop/Econ468project/all_filtered_stations_1991to2021/")
+
+length(a) 
+
+# read in all the station data 
+for (i in 1:length(a)){
+        setwd("C:/Users/Aviel/Desktop/Econ468project/all_filtered_stations_1991to2021/")
+        assign(print(a[i]), read_csv(a[i]))
+}
+
+all_stations_data <- get(a[1])
+
+for (i in 2:length(a)){
+        all_stations_data <- rbind(all_stations_data, get(a[i]))
+        print(i)
+}
+
+# write.csv(all_stations_data, "C:/Users/Aviel/Desktop/Econ468project/all_stations_data.csv") 
+
+rm(list = setdiff(ls(), "all_stations_copy")) # remove all the other objects
+```
+
+## Data exploring
+
+```{r}
+all_stations_data <- read.csv("C:/Users/Aviel/Desktop/Econ468project/all_stations_data.csv")
+
+all_stations_copy <- all_stations_data %>%
+        select(cols = -c(`...1`)) # remove unnecessary column
+
+# create station name vector
+station_IDs <- unique(all_stations_copy$station_id)
+
+filtered_stations <- read_csv("C:/Users/Aviel/Desktop/Econ468project/stationnames1991to2021filtered.csv")
+
+# gives us 214 rows with each station being only the ones we use
+filtered_stations <- filtered_stations %>%
+        filter(`Station ID` %in% station_IDs)
+
+# count number of NAs for each stations mean temp data
+n_NAs_by_station <- all_stations_copy %>%
+        group_by(`station_id`) %>%
+        summarize(number_of_NAs = sum(is.na(`mean_temp`)))
+
+# create a third column with percentage NA
+# create a fourth column with province code
+n_NAs_by_station <- n_NAs_by_station %>%
+        mutate(percent_NAs = `number_of_NAs`/nrow(n_NAs_by_station)) %>%
+        mutate(prov = case_when(
+                (station_id %in% c(1824:2833)) ~ "AB",
+                (station_id %in% c(2854:3319)) ~ "SK",
+                (station_id %in% c(3462:3858)) ~ "MB",
+                (station_id %in% c(3920:5171)) ~ "ON",
+                (station_id %in% c(5216:7000))~ "QC"
+        ))
+
+# fix missing case with Manitoba 
+n_NAs_by_station[51:53, 4] <- c("MB")
+
+# fix missing case with Quebec
+n_NAs_by_station[114, 4] <- c("QC")
+
+# sort by number of NA's
+n_NAs_by_station <- n_NAs_by_station %>%
+        group_by(`prov`) %>%
+        arrange(`percent_NAs`, .by_group = TRUE)
+
+stations_alberta <- n_NAs_by_station %>%
+        filter(`prov` == c("AB"))
+stations_manitoba <- n_NAs_by_station %>%
+        filter(`prov` == c("MB"))
+stations_sask <- n_NAs_by_station %>%
+        filter(`prov` == c("SK"))
+stations_ontario <- n_NAs_by_station %>%
+        filter(`prov` == c("ON"))
+stations_quebec <- n_NAs_by_station %>%
+        filter(`prov` == c("QC"))
+
+# ASSEMBLE SAMPLE
+# 17 stations from alberta 
+sample_alberta <- stations_alberta %>%
+        slice(c(1:17))
+# 28 stations from saskatchewan
+sample_saskatchewan <- stations_sask %>%
+        slice(c(1:28))
+# 8 stations from manitoba
+sample_manitoba <- stations_manitoba %>%
+        slice(c(1:8))
+# 11 stations from ontario 
+sample_ontario <- stations_ontario %>%
+        slice(c(1:11))
+# 3 stations from quebec 
+sample_quebec <- stations_quebec %>%
+        slice(c(1:3))
+
+test_sample_station_NAs <- rbind(sample_alberta, sample_saskatchewan, sample_manitoba, sample_ontario, sample_quebec)
+
+test_sample_station_IDs <- test_sample_station_NAs$station_id
+        
+## Take all the data for those stations 
+
+all_stations_sample <- all_stations_copy %>%
+        filter(`station_id` %in% test_sample_station_IDs)
+```
+
+Now, using the data from the filtered set, make the temperature index
+```{r}
+all_stations_sample_weather <- all_stations_sample %>%
+        select(`station_name`, `station_id`, `lat`, `lon`, `elev`,
+               `date`, `year`, `month`, `day`, `max_temp`, `mean_temp`, `min_temp`, `total_precip`)
+
+# create a third column which has the month year combo as a date 
+all_stations_sample_weather$month_year <- format(as.Date(all_stations_sample_weather$date), "%Y-%m")
+
+# order by date
+all_stations_sample_weather <- all_stations_sample_weather %>%
+        group_by(`date`, `month_year`) %>%
+        arrange(date, .group_by = T)
+
+# write.csv(all_stations_sample_weather, "C:/Users/Aviel/Desktop/Econ468project/sample_weather.csv")
+```
+
+[NOV 14] 
+IMPORTANT: To resume work from the ordered data set for all the stations we are using use data in "sample_weather.csv"
+
+```{r}
+## create a weather index with mean temp by day for min, max, and mean temp
+# each day and the average of mean temp across all stations
+avg_mean_temp_by_day <- all_stations_sample_weather %>%
+        group_by(`month_year`, `date`) %>%
+        summarize(avg_mean_temp = mean(mean_temp, na.rm = TRUE))
+# each day and the average of min temp across all stations
+avg_min_temp_by_day <- all_stations_sample_weather %>%
+        group_by(`month_year`, `date`) %>%
+        summarize(avg_min_temp = mean(min_temp, na.rm = TRUE))
+
+# each day and the average of max temp across all stations
+avg_max_temp_by_day <- all_stations_sample_weather %>%
+        group_by(`month_year`, `date`) %>%
+        summarize(avg_max_temp = mean(max_temp, na.rm = TRUE))
+
+# create a factor for the mean temp by day for month
+avg_mean_temp_by_month <- avg_mean_temp_by_day %>%
+        group_by(month_year) %>%
+        summarize(month_mean_temp = mean(avg_mean_temp)) %>%
+        arrange(month_year)
+
+# write.csv(avg_mean_temp_by_month, "C:/Users/Aviel/Desktop/Econ468project/regression_inputs/monthly_mean_temp.csv")
+
+```
+
+Constructing the index for max temp
+```{r}
+daily_max_30 <- all_stations_sample_weather %>%
+        summarize(n_days_max_over_30 = sum(max_temp >= 30, na.rm = TRUE))
+
+daily_max_25 <- all_stations_sample_weather %>%
+        summarize(n_days_max_over_25 = sum(max_temp >= 25, na.rm = TRUE))
+
+# summarize over months the number of stations in month per days which had over 30
+monthly_max_30 <- daily_max_30 %>%
+        group_by(`month_year`) %>%
+        summarize(total_station_max_days_over_30 = sum(n_days_max_over_30))
+# write.csv(monthly_max_30, "C:/Users/Aviel/Desktop/Econ468project/regression_inputs/monthly_max_30.csv")
+
+# summarize over months the number of stations in month per days which had over 25
+monthly_max_25 <- daily_max_25 %>%
+        group_by(`month_year`) %>%
+        summarize(total_station_max_days_over_25 = sum(n_days_max_over_25))
+# write.csv(monthly_max_25, "C:/Users/Aviel/Desktop/Econ468project/regression_inputs/monthly_max_25.csv")
+```
+
+Now let's try to construct the index for mean
+```{r}
+#data set
+daily_mean_30 <- all_stations_sample_weather %>%
+        summarize(n_days_over_30 = sum(mean_temp >= 30, na.rm = TRUE))
+
+daily_mean_25 <- all_stations_sample_weather %>%
+        summarize(n_days_over_25 = sum(mean_temp >= 25, na.rm = TRUE))
+
+# summarize over months the number of stations in month per days which had over 30
+monthly_mean_30 <- daily_mean_30 %>%
+        group_by(`month_year`) %>%
+        summarize(total_station_days_over_30 = sum(n_days_over_30))
+# write.csv(monthly_mean_30, "C:/Users/Aviel/Desktop/Econ468project/regression_inputs/monthly_over_30.csv")
+
+# summarize over months the number of stations in month per days which had over 25
+monthly_mean_25 <- daily_mean_25 %>%
+        group_by(`month_year`) %>%
+        summarize(total_station_days_over_25 = sum(n_days_over_25))
+# write.csv(monthly_mean_25, "C:/Users/Aviel/Desktop/Econ468project/regression_inputs/monthly_over_25.csv")
+```
+
+Precipitation data
+```{r}
+precipitation_monthly <- all_stations_sample_weather %>%
+        group_by(`month_year`) %>%
+        summarize(monthly_precip = sum(total_precip, .by_group = T, na.rm = T)) %>%
+        mutate(avg_precip = monthly_precip/length(unique(all_stations_sample_weather$station_name)))
+# write.csv(precipitation_monthly, "C:/Users/Aviel/Desktop/Econ468project/regression_inputs/monthly_precipitation.csv```
+
+```

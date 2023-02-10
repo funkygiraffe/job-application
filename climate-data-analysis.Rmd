@@ -1,0 +1,224 @@
+---
+title: "Regression for Econ 468 Project"
+author: "Aviel Fradkine"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(readxl)
+library(ggthemes)
+library(haven)
+library(stargazer)
+library(knitr)
+library(estimatr)
+library(sandwich)
+library(patchwork)
+knitr::opts_chunk$set(
+  out.width = "100%",
+  message = FALSE,
+  warning = FALSE,
+  cache = FALSE,
+  comment = "",
+  echo = TRUE
+)
+```
+
+Load in the datasets we'll be using. The datasets draw on 67 unique stations, with daily weather data from 1991-2020. See the file "getweatherdata.Rmd" for the code that generated the weather data used to create these indexes. The raw daily weather data used for the creation of the indexes is found in the file "sample_weather.csv".  
+
+```{r}
+setwd("C:/Users/Aviel/Desktop/Econ468project/regression_inputs/")
+
+monthly_precipitation <- read.csv("monthly_precipitation.csv")
+monthly_mean_25 <- read.csv("monthly_over_25.csv")
+monthly_max_25 <- read.csv("monthly_max_25.csv")
+monthly_mean_30 <- read.csv("monthly_over_30.csv")
+monthly_max_30 <- read.csv("monthly_max_30.csv")
+monthly_mean_temp <- read.csv("monthly_mean_temp.csv")
+fppi <- read.csv("fppi1991to2021prelim.csv")
+cpi_diff <- read_csv("cpi_diff_monthly.csv")
+```
+
+Clean dataset format and construct our df
+```{r}
+fppi$date <- monthly_mean_25$month_year
+
+fppi_crops <- fppi %>%
+        select(`date`, `Total.crops`) %>%
+        rename(month_year = date)
+
+reg_data <- data.frame(fppi_crops$month_year,
+                  fppi_crops$Total.crops,
+                  cpi_diff$cpi_diff_monthly,
+                  monthly_mean_25$total_station_days_over_25,
+                  monthly_max_25$total_station_max_days_over_25,
+                  monthly_mean_30$total_station_days_over_30,
+                  monthly_max_30$total_station_max_days_over_30,
+                  monthly_mean_temp$month_mean_temp,
+                  monthly_precipitation$monthly_precip,
+                  monthly_precipitation$avg_precip)
+
+colnames(reg_data) <- c('month_year',
+                        'fppi_crops',
+                        'cpi_diff',
+                        'st_days_mean_over_25',
+                        'st_days_max_over_25',
+                        'st_days_mean_over_30',
+                        'st_days_max_over_30',
+                        'monthly_mean_temp', 
+                        'monthly_precipitation_total', 
+                        'monthly_precipitation_average')
+
+# add monthly difference of fppi and add a lag for fppi
+fppi_diffs <- c(0.3, diff(reg_data$fppi_crops)) # length 359
+reg_data <- reg_data %>%
+        mutate(diff_fppi = fppi_diffs) %>%
+        mutate(lag_st_days_max_30 = lag(st_days_max_over_30, n = 3)) %>%
+        mutate(lag_st_days_max_25 = lag(st_days_max_over_25, n = 3)) %>%
+        mutate(lag_monthly_mean_temp = lag(monthly_mean_temp, n = 3))
+
+# add monthly difference of fppi as percent
+reg_data <- reg_data %>%
+        mutate(diff_fppi_per = round(fppi_diffs/fppi_crops, 3))
+
+write.csv(reg_data,
+   "C:\\Users\\Aviel\\Desktop\\Econ468project\\regression_inputs\\reg_data.csv")
+```
+
+## Data visualization
+
+Simple scatterplot of diff_fppi and months
+```{r}
+diff_fppi <- ggplot(reg_data, aes(x = month_year,
+                                  y = diff_fppi)) +
+        geom_point()
+diff_fppi
+```
+
+\newpage
+
+Relationship between fppi and cpi
+The CPI and fppi have a weird relationship because the fppi is indexed to 2007 whereas the inflation is a monthly inflation 
+
+```{r}
+fppi_mean_temp_plot <- ggplot(reg_data) + 
+        aes(x = diff_fppi,
+            y = monthly_mean_temp) +
+        geom_point()
+fppi_mean_temp_plot
+
+fppi_cpi_plot <- ggplot(reg_data) +
+        aes(x = fppi_crops, 
+            y = cpi_diff) + 
+        geom_point() + 
+        geom_smooth()
+fppi_cpi_plot
+
+diffs_plot <- ggplot(reg_data) + 
+        aes(x = `diff_fppi`,
+            y = `cpi_diff`)+
+        geom_point()+
+        geom_smooth()
+diffs_plot
+```
+
+\newpage
+Density plot of weather indexes
+```{r}
+mean.25.plot <- ggplot(reg_data) + 
+        geom_histogram(aes(x = st_days_mean_over_25)) + 
+        xlim(0, max(reg_data$st_days_mean_over_25)) + 
+        ylim(0, 30)
+mean.30.plot <- ggplot(reg_data) + 
+        geom_histogram(aes(x = st_days_mean_over_30)) + 
+        xlim(0, max(reg_data$st_days_mean_over_30)) + 
+        ylim(0, 30)
+max.25.plot <- ggplot(reg_data) + 
+        geom_histogram(aes(x = st_days_max_over_25)) + 
+        xlim(0, max(reg_data$st_days_max_over_25)) + 
+        ylim(0, 30)
+max.30.plot <- ggplot(reg_data) + 
+        geom_histogram(aes(x = st_days_max_over_30)) + 
+        xlim(0, max(reg_data$st_days_max_over_30)) + 
+        ylim(0, 30)
+mean.25.plot + mean.30.plot + max.25.plot + max.30.plot + 
+        plot_annotation(
+                title = "Histograms of weather indexes",
+                subtitle = "Each month has max value of 2010 or 2077"
+        )
+```
+\newpage
+## Regressions
+
+```{r}
+setwd("C:/Users/Aviel/Desktop/Econ468project/regression_inputs/")
+reg_data <- read_csv("reg_data.csv")
+```
+
+Regression #1 - Diff in fppi on monthly mean temperature
+```{r}
+reg.diff.fppi <- lm(diff_fppi ~ monthly_mean_temp, reg_data)
+summary(reg.diff.fppi)
+```
+
+Regression #2 - Diff in fppi on mean temperature 
+```{r}
+reg.diff.mean.30 <- lm(diff_fppi ~ st_days_mean_over_30, reg_data) 
+reg.diff.mean.25 <- lm(diff_fppi ~ st_days_mean_over_25, reg_data)
+summary(reg.diff.mean.25)
+summary(reg.diff.mean.30)
+```
+
+Regression #3 - Diff in fppi on max temperature 
+```{r}
+reg.diff.max.30 <- lm(diff_fppi ~ st_days_max_over_30, reg_data)
+reg.diff.max.25 <- lm(diff_fppi ~ st_days_max_over_25, reg_data)
+summary(reg.diff.max.25)
+summary(reg.diff.max.30)
+```
+
+Regression #4 - Diff in fppi on days max over 30c, diff in cpi, monthly precipitation
+```{r}
+reg.diff.ovb <- lm(diff_fppi ~ st_days_max_over_30 + 
+                           monthly_precipitation_average +
+                           cpi_diff, 
+                   reg_data)
+summary(reg.diff.ovb)
+```
+
+\newpage
+## Appendix
+
+Regression of diff in fppi on lagged weather max over 30 
+```{r}
+reg.lag.30 <- lm(diff_fppi ~ lag_st_days_max_30, reg_data)
+summary(reg.lag.30)
+```
+
+Regression of diff in fppi on lagged weather max over 25 
+```{r}
+reg.lag.25 <- lm(diff_fppi ~ lag_st_days_max_25, reg_data)
+summary(reg.lag.25)
+```
+
+Regression of diff in fppi on lagged weather max
+```{r}
+reg.lag.mean <- lm(diff_fppi ~ lag_monthly_mean_temp, reg_data)
+summary(reg.lag.mean)
+```
+
+\newpage
+Display results in nice table
+```{r, results = "asis"}
+stargazer(reg.lag.30, reg.lag.25, reg.lag.mean,
+          type = "latex", 
+          title = "Lagged regressions",
+          column.labels = c("Lagged days max over 30", 
+                            "Lagged days max over 25",
+                            "Lagged monthly mean temp"),
+          header = T, 
+          font.size = "small")
+```
