@@ -2,7 +2,6 @@
 Welcome! Here you'll find projects and code that I've chosen to make public to show my skills in research and data analysis. Please feel free to explore, and if you like what you see, don't hesitate to reach out. 
 
 ## 1. Happiness Data Analysis 
-Skills: Data cleaning, data modelling, linear regression
 In this project, I analyzed data from the World Happiness Report to investigate the relationship between GDP and happiness by country and region of the world. I cleaned data, modeled relationships using multiple linear regression, and performed statistical tests to investigate the strength of the relationship. 
    - [Data](/happiness.csv) 
    - Data Import (code): [r-markdown](/happiness_data_preparation.Rmd) 
