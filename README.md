@@ -12,4 +12,4 @@ Welcome! Here you'll find projects and code that I've chosen to make public to s
    - Data Analysis: [r-markdown](/climate_data_analysis.Rmd), [pdf](/climate_data_analysis.Rmd)
    - [Data for Regressions](climate_reg_data.csv)
 ## 3. ARIA Research on Religious Authority
-   - [Final Research Poster](/"ARIA 2022 Aviel Fradkine Poster.pdf") This was a poster I presented at the research night for the McGill Faculty of Arts in Fall 2022.
+   - [Final Research Poster](/"ARIA_2022_Aviel_Fradkine_Poster.pdf") This was a poster I presented at the research night for the McGill Faculty of Arts in Fall 2022.
