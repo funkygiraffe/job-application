@@ -6,4 +6,4 @@ Welcome! Here you'll find projects and code that I've chosen to make public to s
 Projects:
 1. Happiness Data Analysis 
 2. Climate Weather Analysis 
-3. Research on Religious Authority 
+3. ARIA Research on Religious Authority 
